@@ -5,19 +5,29 @@ export interface Student {
   full_name: string;
   class_name: string;
   major: string;
-  qr_code_path?: string;
+  qr_code_path?: string | null;
   is_active: boolean;
-  created_at: Date;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Attendance {
   id: string;
   student_id: string;
-  student?: Student;
   attendance_date: string;
   time_in: string;
-  time_out?: string;
+  time_out?: string | null;
   status: 'Hadir' | 'Izin' | 'Sakit' | 'Alpha';
+  created_at: string;
+  student?: Student;
+}
+
+export interface Profile {
+  id: string;
+  full_name: string | null;
+  role: 'admin' | 'petugas';
+  created_at: string;
+  updated_at: string;
 }
 
 export interface DashboardStats {

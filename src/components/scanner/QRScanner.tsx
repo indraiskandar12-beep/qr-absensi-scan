@@ -2,8 +2,10 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { Camera, X, Volume2, VolumeX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useAppStore } from '@/store/useAppStore';
+import { supabase } from '@/integrations/supabase/client';
+import { useRecordAttendance } from '@/hooks/useAttendances';
 import { cn } from '@/lib/utils';
+import { Student } from '@/types';
 
 type ScanResult = {
   type: 'success' | 'warning' | 'error';
@@ -17,7 +19,7 @@ const QRScanner = () => {
   const [scanResult, setScanResult] = useState<ScanResult>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const scannerRef = useRef<Html5Qrcode | null>(null);
-  const { recordAttendance } = useAppStore();
+  const recordAttendance = useRecordAttendance();
 
   const playSound = useCallback((type: 'success' | 'warning' | 'error') => {
     if (!soundEnabled) return;
@@ -53,34 +55,61 @@ const QRScanner = () => {
     }
   }, [soundEnabled]);
 
-  const handleScanSuccess = useCallback((decodedText: string) => {
-    const result = recordAttendance(decodedText);
-    
-    if (result.success) {
-      playSound('success');
-      setScanResult({
-        type: 'success',
-        message: result.message,
-        studentName: result.student?.full_name,
-        studentClass: result.student?.class_name,
-      });
-    } else if (result.student) {
-      playSound('warning');
-      setScanResult({
-        type: 'warning',
-        message: result.message,
-        studentName: result.student.full_name,
-        studentClass: result.student.class_name,
-      });
-    } else {
+  const handleScanSuccess = useCallback(async (decodedText: string) => {
+    // Find student by unique ID
+    const { data: student, error } = await supabase
+      .from('students')
+      .select('*')
+      .eq('student_unique_id', decodedText)
+      .maybeSingle();
+
+    if (error || !student) {
       playSound('error');
       setScanResult({
         type: 'error',
-        message: result.message,
+        message: 'QR CODE TIDAK VALID!',
       });
+      setTimeout(() => setScanResult(null), 3000);
+      return;
     }
 
-    // Clear result after 3 seconds
+    if (!student.is_active) {
+      playSound('error');
+      setScanResult({
+        type: 'error',
+        message: 'SISWA TIDAK AKTIF!',
+      });
+      setTimeout(() => setScanResult(null), 3000);
+      return;
+    }
+
+    try {
+      await recordAttendance.mutateAsync(student.id);
+      playSound('success');
+      setScanResult({
+        type: 'success',
+        message: 'ABSENSI BERHASIL!',
+        studentName: student.full_name,
+        studentClass: student.class_name,
+      });
+    } catch (error: any) {
+      if (error.message === 'ALREADY_ATTENDED') {
+        playSound('warning');
+        setScanResult({
+          type: 'warning',
+          message: 'SUDAH ABSEN HARI INI!',
+          studentName: student.full_name,
+          studentClass: student.class_name,
+        });
+      } else {
+        playSound('error');
+        setScanResult({
+          type: 'error',
+          message: 'GAGAL MENYIMPAN ABSENSI!',
+        });
+      }
+    }
+
     setTimeout(() => setScanResult(null), 3000);
   }, [recordAttendance, playSound]);
 
