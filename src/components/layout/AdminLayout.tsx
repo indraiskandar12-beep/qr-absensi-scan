@@ -9,7 +9,7 @@ import {
   Menu,
   X
 } from 'lucide-react';
-import { useAppStore } from '@/store/useAppStore';
+import { useAuth } from '@/hooks/useAuth';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -20,7 +20,7 @@ interface AdminLayoutProps {
 const AdminLayout = ({ children }: AdminLayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { currentUser, logout } = useAppStore();
+  const { profile, signOut } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const menuItems = [
@@ -30,8 +30,8 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     { path: '/reports', icon: FileText, label: 'Rekap Absensi' },
   ];
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await signOut();
     navigate('/login');
   };
 
@@ -59,8 +59,12 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                   <Users className="w-5 h-5 text-primary-foreground" />
                 </div>
                 <div>
-                  <h2 className="text-sidebar-foreground font-semibold text-sm">ADMIN</h2>
-                  <p className="text-sidebar-foreground/60 text-xs">{currentUser?.name}</p>
+                  <h2 className="text-sidebar-foreground font-semibold text-sm uppercase">
+                    {profile?.role || 'User'}
+                  </h2>
+                  <p className="text-sidebar-foreground/60 text-xs truncate max-w-[120px]">
+                    {profile?.full_name || 'User'}
+                  </p>
                 </div>
               </div>
               <button 
@@ -127,11 +131,11 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-muted-foreground hidden sm:block">
-              {currentUser?.name}
+              {profile?.full_name || 'User'}
             </span>
             <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
               <span className="text-primary-foreground text-sm font-medium">
-                {currentUser?.name?.charAt(0) || 'A'}
+                {profile?.full_name?.charAt(0) || 'U'}
               </span>
             </div>
           </div>

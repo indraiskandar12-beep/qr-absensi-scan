@@ -1,7 +1,8 @@
 import { Users, UserCheck, UserX, Clock } from 'lucide-react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import StatCard from '@/components/dashboard/StatCard';
-import { useAppStore } from '@/store/useAppStore';
+import { useStudents } from '@/hooks/useStudents';
+import { useTodayAttendances } from '@/hooks/useAttendances';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   Table, 
@@ -12,24 +13,30 @@ import {
   TableRow 
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const Dashboard = () => {
-  const { students, getTodayAttendances } = useAppStore();
-  const todayAttendances = getTodayAttendances();
+  const { data: students = [], isLoading: loadingStudents } = useStudents();
+  const { data: todayAttendances = [], isLoading: loadingAttendances } = useTodayAttendances();
   
   const activeStudents = students.filter(s => s.is_active);
   const presentToday = todayAttendances.filter(a => a.status === 'Hadir').length;
   const absentToday = activeStudents.length - todayAttendances.length;
 
-  const getStudentName = (studentId: string) => {
-    const student = students.find(s => s.id === studentId);
-    return student?.full_name || 'Unknown';
-  };
-
-  const getStudentClass = (studentId: string) => {
-    const student = students.find(s => s.id === studentId);
-    return student?.class_name || '-';
-  };
+  if (loadingStudents || loadingAttendances) {
+    return (
+      <AdminLayout>
+        <div className="space-y-6">
+          <Skeleton className="h-8 w-48" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map(i => (
+              <Skeleton key={i} className="h-32" />
+            ))}
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -60,7 +67,7 @@ const Dashboard = () => {
           />
           <StatCard
             title="Belum Hadir"
-            value={absentToday}
+            value={absentToday < 0 ? 0 : absentToday}
             icon={UserX}
             variant="red"
             subtitle="Belum absen"
@@ -101,8 +108,8 @@ const Dashboard = () => {
                     {todayAttendances.slice(0, 10).map((attendance, index) => (
                       <TableRow key={attendance.id}>
                         <TableCell className="font-medium">{index + 1}</TableCell>
-                        <TableCell>{getStudentName(attendance.student_id)}</TableCell>
-                        <TableCell>{getStudentClass(attendance.student_id)}</TableCell>
+                        <TableCell>{attendance.student?.full_name || '-'}</TableCell>
+                        <TableCell>{attendance.student?.class_name || '-'}</TableCell>
                         <TableCell>{attendance.time_in}</TableCell>
                         <TableCell>
                           <Badge variant="default" className="bg-success text-success-foreground">
