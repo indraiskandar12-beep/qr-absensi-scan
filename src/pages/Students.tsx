@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Plus, Search, Edit, Trash2, QrCode, Printer } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, QrCode, Printer, Upload } from 'lucide-react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { useStudents, useAddStudent, useUpdateStudent, useDeleteStudent } from '@/hooks/useStudents';
+import { useSchoolSettings } from '@/hooks/useSchoolSettings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,10 +13,12 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import QRCode from 'qrcode';
 import { Student } from '@/types';
-import jsPDF from 'jspdf';
+import { generateStudentCards } from '@/utils/generateStudentCard';
+import ImportStudentsDialog from '@/components/students/ImportStudentsDialog';
 
 const Students = () => {
   const { data: students = [], isLoading } = useStudents();
+  const { data: schoolSettings } = useSchoolSettings();
   const addStudent = useAddStudent();
   const updateStudent = useUpdateStudent();
   const deleteStudent = useDeleteStudent();
@@ -23,9 +26,11 @@ const Students = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [formData, setFormData] = useState({ nisn: '', full_name: '', class_name: '', major: '' });
+  const [isPrinting, setIsPrinting] = useState(false);
 
   const filteredStudents = students.filter(s => 
     s.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -33,7 +38,7 @@ const Students = () => {
     s.class_name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const generateQRCode = async (uniqueId: string) => {
+  const generateQRCodeUrl = async (uniqueId: string) => {
     try {
       return await QRCode.toDataURL(uniqueId, { width: 300, margin: 2 });
     } catch { return ''; }
@@ -53,51 +58,20 @@ const Students = () => {
   };
 
   const handleShowQR = async (student: Student) => {
-    const qrUrl = await generateQRCode(student.student_unique_id);
+    const qrUrl = await generateQRCodeUrl(student.student_unique_id);
     setQrCodeUrl(qrUrl);
     setSelectedStudent(student);
     setQrDialogOpen(true);
   };
 
   const handlePrintCards = async () => {
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const cardWidth = 85; const cardHeight = 54;
-    const margin = 10; const cardsPerRow = 2; const cardsPerPage = 8;
-    
-    for (let i = 0; i < filteredStudents.length; i++) {
-      const student = filteredStudents[i];
-      const pageIndex = Math.floor(i / cardsPerPage);
-      const cardIndex = i % cardsPerPage;
-      
-      if (cardIndex === 0 && i > 0) doc.addPage();
-      
-      const row = Math.floor(cardIndex / cardsPerRow);
-      const col = cardIndex % cardsPerRow;
-      const x = margin + col * (cardWidth + 5);
-      const y = margin + row * (cardHeight + 5);
-      
-      doc.setFillColor(30, 75, 120);
-      doc.rect(x, y, cardWidth, 15, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(10);
-      doc.text('SMP REKAYASA TEKNOLOGI', x + cardWidth / 2, y + 10, { align: 'center' });
-      
-      doc.setDrawColor(200, 200, 200);
-      doc.rect(x, y, cardWidth, cardHeight);
-      
-      const qrUrl = await generateQRCode(student.student_unique_id);
-      if (qrUrl) doc.addImage(qrUrl, 'PNG', x + 5, y + 20, 28, 28);
-      
-      doc.setTextColor(0, 0, 0);
-      doc.setFontSize(9);
-      doc.text(student.full_name, x + 38, y + 25);
-      doc.setFontSize(8);
-      doc.text(`NISN: ${student.nisn}`, x + 38, y + 32);
-      doc.text(`Kelas: ${student.class_name}`, x + 38, y + 39);
-      doc.text(`ID: ${student.student_unique_id}`, x + 38, y + 46);
+    if (filteredStudents.length === 0) return;
+    setIsPrinting(true);
+    try {
+      await generateStudentCards(filteredStudents, schoolSettings);
+    } finally {
+      setIsPrinting(false);
     }
-    
-    doc.save('kartu-siswa.pdf');
   };
 
   if (isLoading) return <AdminLayout><Skeleton className="h-96" /></AdminLayout>;
@@ -110,9 +84,12 @@ const Students = () => {
             <h1 className="text-2xl font-bold">Data Siswa</h1>
             <p className="text-muted-foreground mt-1">Kelola data siswa dan generate QR Code</p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={handlePrintCards} disabled={filteredStudents.length === 0}>
-              <Printer className="w-4 h-4 mr-2" />Cetak Kartu
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setImportDialogOpen(true)}>
+              <Upload className="w-4 h-4 mr-2" />Import
+            </Button>
+            <Button variant="outline" onClick={handlePrintCards} disabled={filteredStudents.length === 0 || isPrinting}>
+              <Printer className="w-4 h-4 mr-2" />{isPrinting ? 'Memproses...' : 'Cetak Kartu'}
             </Button>
             <Button onClick={() => { setSelectedStudent(null); setFormData({ nisn: '', full_name: '', class_name: '', major: '' }); setDialogOpen(true); }}>
               <Plus className="w-4 h-4 mr-2" />Tambah Siswa
@@ -162,6 +139,7 @@ const Students = () => {
           </CardContent>
         </Card>
 
+        {/* Add/Edit Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent>
             <DialogHeader><DialogTitle>{selectedStudent ? 'Edit Siswa' : 'Tambah Siswa'}</DialogTitle></DialogHeader>
@@ -178,6 +156,7 @@ const Students = () => {
           </DialogContent>
         </Dialog>
 
+        {/* QR Code Dialog */}
         <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader><DialogTitle>QR Code Siswa</DialogTitle></DialogHeader>
@@ -191,6 +170,9 @@ const Students = () => {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Import Dialog */}
+        <ImportStudentsDialog open={importDialogOpen} onOpenChange={setImportDialogOpen} />
       </div>
     </AdminLayout>
   );
