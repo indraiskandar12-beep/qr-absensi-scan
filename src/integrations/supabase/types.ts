@@ -76,6 +76,39 @@ export type Database = {
         }
         Relationships: []
       }
+      school_settings: {
+        Row: {
+          created_at: string
+          id: string
+          school_address: string | null
+          school_email: string | null
+          school_logo_url: string | null
+          school_name: string
+          school_phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          school_address?: string | null
+          school_email?: string | null
+          school_logo_url?: string | null
+          school_name?: string
+          school_phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          school_address?: string | null
+          school_email?: string | null
+          school_logo_url?: string | null
+          school_name?: string
+          school_phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       students: {
         Row: {
           class_name: string

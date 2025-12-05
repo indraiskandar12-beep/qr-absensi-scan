@@ -7,7 +7,8 @@ import {
   FileText, 
   LogOut,
   Menu,
-  X
+  X,
+  Settings
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useState } from 'react';
@@ -28,6 +29,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     { path: '/students', icon: Users, label: 'Data Siswa' },
     { path: '/scanner', icon: ScanLine, label: 'Scanner Absensi' },
     { path: '/reports', icon: FileText, label: 'Rekap Absensi' },
+    { path: '/settings', icon: Settings, label: 'Pengaturan' },
   ];
 
   const handleLogout = async () => {
