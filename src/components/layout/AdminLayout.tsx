@@ -8,10 +8,12 @@ import {
   LogOut,
   Menu,
   X,
-  Settings
+  Settings,
+  UserPlus
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
+import { useUserRole } from '@/hooks/useUserRole';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -24,6 +26,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
   const navigate = useNavigate();
   const { profile, signOut } = useAuth();
   const { data: schoolSettings } = useSchoolSettings();
+  const { isAdmin } = useUserRole();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   
   const schoolName = schoolSettings?.school_name || 'Absensi Sekolah';
@@ -34,6 +37,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     { path: '/scanner', icon: ScanLine, label: 'Scanner Absensi' },
     { path: '/reports', icon: FileText, label: 'Rekap Absensi' },
     { path: '/settings', icon: Settings, label: 'Pengaturan' },
+    ...(isAdmin ? [{ path: '/staff', icon: UserPlus, label: 'Kelola Staff' }] : []),
   ];
 
   const handleLogout = async () => {

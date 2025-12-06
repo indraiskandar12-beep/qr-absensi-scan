@@ -5,11 +5,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import Login from "./pages/Login";
+import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Students from "./pages/Students";
 import Scanner from "./pages/Scanner";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
+import StaffManagement from "./pages/StaffManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -63,6 +65,14 @@ const AppRoutes = () => (
         </AuthRoute>
       } 
     />
+    <Route 
+      path="/register" 
+      element={
+        <AuthRoute>
+          <Register />
+        </AuthRoute>
+      } 
+    />
     <Route
       path="/dashboard"
       element={
@@ -100,6 +110,14 @@ const AppRoutes = () => (
       element={
         <ProtectedRoute>
           <Settings />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/staff"
+      element={
+        <ProtectedRoute>
+          <StaffManagement />
         </ProtectedRoute>
       }
     />

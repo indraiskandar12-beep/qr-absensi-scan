@@ -30,6 +30,24 @@ export interface Profile {
   updated_at: string;
 }
 
+export interface UserRole {
+  id: string;
+  user_id: string;
+  role: 'admin' | 'petugas';
+  created_at: string;
+}
+
+export interface StaffInvitation {
+  id: string;
+  email: string;
+  full_name: string;
+  role: 'admin' | 'petugas';
+  invited_by: string | null;
+  created_at: string;
+  expires_at: string;
+  used_at: string | null;
+}
+
 export interface DashboardStats {
   totalStudents: number;
   presentToday: number;
