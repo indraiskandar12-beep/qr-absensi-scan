@@ -11,6 +11,7 @@ import {
   Settings
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useSchoolSettings } from '@/hooks/useSchoolSettings';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -22,7 +23,10 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { profile, signOut } = useAuth();
+  const { data: schoolSettings } = useSchoolSettings();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  
+  const schoolName = schoolSettings?.school_name || 'Absensi Sekolah';
 
   const menuItems = [
     { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -81,7 +85,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
           {/* School Name */}
           <div className="px-4 py-3 border-b border-white/10">
             <p className="text-sidebar-foreground/80 text-xs uppercase tracking-wide">
-              Absensi SMP Rekayasa
+              Absensi {schoolName}
             </p>
           </div>
 
@@ -128,7 +132,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
               <Menu className="w-5 h-5" />
             </button>
             <h1 className="text-lg font-semibold text-foreground">
-              Absensi SMP Rekayasa
+              Absensi {schoolName}
             </h1>
           </div>
           <div className="flex items-center gap-3">
