@@ -15,6 +15,8 @@ import { UserPlus, Trash2, Mail, Clock, Shield, ShieldCheck } from 'lucide-react
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { Navigate } from 'react-router-dom';
+import { staffInvitationSchema, getValidationError } from '@/lib/validations';
+import { toast } from 'sonner';
 
 const StaffManagement = () => {
   const { isAdmin, isLoading: roleLoading } = useUserRole();
@@ -33,11 +35,14 @@ const StaffManagement = () => {
   const handleCreateInvitation = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    await createInvitation.mutateAsync({
-      email,
-      full_name: fullName,
-      role,
-    });
+    const formData = { email, full_name: fullName, role };
+    const error = getValidationError(staffInvitationSchema, formData);
+    if (error) {
+      toast.error(error);
+      return;
+    }
+    
+    await createInvitation.mutateAsync(formData);
 
     setEmail('');
     setFullName('');

@@ -15,6 +15,8 @@ import QRCode from 'qrcode';
 import { Student } from '@/types';
 import { generateStudentCards } from '@/utils/generateStudentCard';
 import ImportStudentsDialog from '@/components/students/ImportStudentsDialog';
+import { studentSchema, getValidationError } from '@/lib/validations';
+import { toast } from 'sonner';
 
 const Students = () => {
   const { data: students = [], isLoading } = useStudents();
@@ -45,7 +47,11 @@ const Students = () => {
   };
 
   const handleAddStudent = async () => {
-    if (!formData.nisn || !formData.full_name || !formData.class_name || !formData.major) return;
+    const error = getValidationError(studentSchema, formData);
+    if (error) {
+      toast.error(error);
+      return;
+    }
     await addStudent.mutateAsync({ ...formData, is_active: true, qr_code_path: null });
     setDialogOpen(false);
     setFormData({ nisn: '', full_name: '', class_name: '', major: '' });
@@ -53,6 +59,11 @@ const Students = () => {
 
   const handleUpdateStudent = async () => {
     if (!selectedStudent) return;
+    const error = getValidationError(studentSchema, formData);
+    if (error) {
+      toast.error(error);
+      return;
+    }
     await updateStudent.mutateAsync({ id: selectedStudent.id, ...formData });
     setDialogOpen(false);
   };
