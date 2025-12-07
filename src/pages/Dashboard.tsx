@@ -3,6 +3,7 @@ import AdminLayout from '@/components/layout/AdminLayout';
 import StatCard from '@/components/dashboard/StatCard';
 import { useStudents } from '@/hooks/useStudents';
 import { useTodayAttendances } from '@/hooks/useAttendances';
+import { useSchoolSettings } from '@/hooks/useSchoolSettings';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   Table, 
@@ -14,10 +15,12 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import schoolLogoDefault from '@/assets/school-logo.png';
 
 const Dashboard = () => {
   const { data: students = [], isLoading: loadingStudents } = useStudents();
   const { data: todayAttendances = [], isLoading: loadingAttendances } = useTodayAttendances();
+  const { data: schoolSettings } = useSchoolSettings();
   
   const activeStudents = students.filter(s => s.is_active);
   const presentToday = todayAttendances.filter(a => a.status === 'Hadir').length;
@@ -41,12 +44,21 @@ const Dashboard = () => {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">
-            Selamat datang! Ini adalah ringkasan data absensi hari ini.
-          </p>
+        {/* Header with Logo */}
+        <div className="flex items-center gap-4">
+          <img 
+            src={schoolSettings?.school_logo_url || schoolLogoDefault} 
+            alt="Logo Sekolah" 
+            className="w-16 h-16 object-contain"
+          />
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">
+              {schoolSettings?.school_name || 'Dashboard'}
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Selamat datang! Ini adalah ringkasan data absensi hari ini.
+            </p>
+          </div>
         </div>
 
         {/* Stats Grid */}

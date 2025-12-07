@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import QRCode from 'qrcode';
 import { Student } from '@/types';
 import { SchoolSettings } from '@/hooks/useSchoolSettings';
+import schoolLogoDefault from '@/assets/school-logo.png';
 
 const generateQRCode = async (uniqueId: string): Promise<string> => {
   try {
@@ -26,24 +27,22 @@ export const generateStudentCards = async (
   const gapX = 8;
   const gapY = 8;
 
-  const schoolName = schoolSettings?.school_name || 'SEKOLAH MENENGAH';
+  const schoolName = schoolSettings?.school_name || 'SMA NEGERI 1 MANONJAYA';
   const schoolAddress = schoolSettings?.school_address || '';
-  const logoUrl = schoolSettings?.school_logo_url;
+  const logoUrl = schoolSettings?.school_logo_url || schoolLogoDefault;
 
-  // Load logo if exists
+  // Load logo
   let logoImage: string | null = null;
-  if (logoUrl) {
-    try {
-      const response = await fetch(logoUrl);
-      const blob = await response.blob();
-      logoImage = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(blob);
-      });
-    } catch {
-      logoImage = null;
-    }
+  try {
+    const response = await fetch(logoUrl);
+    const blob = await response.blob();
+    logoImage = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    logoImage = null;
   }
 
   for (let i = 0; i < students.length; i++) {
