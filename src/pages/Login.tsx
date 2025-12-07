@@ -6,8 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Users, Lock, Mail, ShieldAlert } from 'lucide-react';
+import { Lock, Mail, ShieldAlert } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import schoolLogo from '@/assets/school-logo.png';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -38,8 +39,8 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-primary/5 p-4">
       <Card className="w-full max-w-md shadow-2xl border-0">
         <CardHeader className="space-y-4 text-center pb-2">
-          <div className="mx-auto w-20 h-20 rounded-full bg-primary flex items-center justify-center shadow-lg">
-            <Users className="w-10 h-10 text-primary-foreground" />
+          <div className="mx-auto w-24 h-24 rounded-full bg-white flex items-center justify-center shadow-lg overflow-hidden">
+            <img src={schoolLogo} alt="Logo SMAN 1 Manonjaya" className="w-20 h-20 object-contain" />
           </div>
           <div>
             <CardTitle className="text-2xl font-bold">Sistem Absensi Siswa</CardTitle>
