@@ -44,7 +44,7 @@ const Login = () => {
           <div>
             <CardTitle className="text-2xl font-bold">Sistem Absensi Siswa</CardTitle>
             <CardDescription className="text-base mt-2">
-              SMP Rekayasa Teknologi
+              SMAN 1 Manonjaya
             </CardDescription>
           </div>
         </CardHeader>
