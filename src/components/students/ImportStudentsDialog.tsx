@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAddStudent } from '@/hooks/useStudents';
 import { toast } from 'sonner';
+import { studentSchema } from '@/lib/validations';
 
 interface ImportStudentsDialogProps {
   open: boolean;
@@ -54,8 +55,11 @@ const ImportStudentsDialog = ({ open, onOpenChange }: ImportStudentsDialogProps)
           const class_name = String(row[2] || '').trim();
           const major = String(row[3] || '').trim();
 
-          if (!nisn || !full_name || !class_name || !major) {
-            parseErrors.push(`Baris ${i + 1}: Data tidak lengkap`);
+          // Validate using zod schema
+          const validation = studentSchema.safeParse({ nisn, full_name, class_name, major });
+          if (!validation.success) {
+            const errorMsg = validation.error.errors[0]?.message || 'Data tidak valid';
+            parseErrors.push(`Baris ${i + 1}: ${errorMsg}`);
             continue;
           }
 

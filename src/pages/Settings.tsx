@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, Building2, User, Upload } from 'lucide-react';
+import { Save, Building2, User } from 'lucide-react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { useSchoolSettings, useUpdateSchoolSettings } from '@/hooks/useSchoolSettings';
 import { useAuth } from '@/hooks/useAuth';
@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { schoolSettingsSchema, profileSchema, passwordChangeSchema, getValidationError } from '@/lib/validations';
 
 const Settings = () => {
   const { data: settings, isLoading } = useSchoolSettings();
@@ -56,41 +57,48 @@ const Settings = () => {
   }, [profile]);
 
   const handleSaveSchool = async () => {
+    const error = getValidationError(schoolSettingsSchema, schoolForm);
+    if (error) {
+      toast.error(error);
+      return;
+    }
     await updateSettings.mutateAsync(schoolForm);
   };
 
   const handleSaveProfile = async () => {
     if (!user) return;
     
-    const { error } = await supabase
+    const error = getValidationError(profileSchema, profileForm);
+    if (error) {
+      toast.error(error);
+      return;
+    }
+    
+    const { error: dbError } = await supabase
       .from('profiles')
       .update({ full_name: profileForm.full_name })
       .eq('id', user.id);
     
-    if (error) {
-      toast.error('Gagal menyimpan profil: ' + error.message);
+    if (dbError) {
+      toast.error('Gagal menyimpan profil: ' + dbError.message);
     } else {
       toast.success('Profil berhasil disimpan!');
     }
   };
 
   const handleChangePassword = async () => {
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      toast.error('Password tidak cocok!');
+    const error = getValidationError(passwordChangeSchema, passwordForm);
+    if (error) {
+      toast.error(error);
       return;
     }
     
-    if (passwordForm.newPassword.length < 6) {
-      toast.error('Password minimal 6 karakter!');
-      return;
-    }
-    
-    const { error } = await supabase.auth.updateUser({
+    const { error: authError } = await supabase.auth.updateUser({
       password: passwordForm.newPassword,
     });
     
-    if (error) {
-      toast.error('Gagal mengubah password: ' + error.message);
+    if (authError) {
+      toast.error('Gagal mengubah password: ' + authError.message);
     } else {
       toast.success('Password berhasil diubah!');
       setPasswordForm({ newPassword: '', confirmPassword: '' });
