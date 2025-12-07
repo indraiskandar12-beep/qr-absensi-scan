@@ -98,6 +98,12 @@ const Login = () => {
               Sistem ini menggunakan undangan. Hubungi administrator untuk mendapatkan akses.
             </AlertDescription>
           </Alert>
+
+          <div className="mt-4 text-center">
+            <Button variant="link" onClick={() => navigate('/register')}>
+              Punya undangan? Daftar disini
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
