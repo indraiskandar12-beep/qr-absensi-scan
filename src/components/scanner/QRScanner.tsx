@@ -125,6 +125,7 @@ const QRScanner = () => {
           studentClass: student.class_name,
         });
       } else {
+        console.error('Attendance error:', error);
         playSound('error');
         setScanResult({
           type: 'error',

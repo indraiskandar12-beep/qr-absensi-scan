@@ -65,12 +65,14 @@ export const useRecordAttendance = () => {
       const now = new Date().toLocaleTimeString('en-GB', { hour12: false });
       
       // Check if already attended today
-      const { data: existing } = await supabase
+      const { data: existing, error: fetchError } = await supabase
         .from('attendances')
         .select('id, time_in, time_out')
         .eq('student_id', studentId)
         .eq('attendance_date', today)
         .maybeSingle();
+      
+      if (fetchError) throw new Error('FETCH_ERROR');
       
       if (mode === 'check_in') {
         if (existing) {
