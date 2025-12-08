@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Save, Building2, User, Upload, X } from 'lucide-react';
+import { Save, Building2, User, Upload, X, Clock } from 'lucide-react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { useSchoolSettings, useUpdateSchoolSettings } from '@/hooks/useSchoolSettings';
 import { useAuth } from '@/hooks/useAuth';
@@ -27,6 +27,7 @@ const Settings = () => {
     school_phone: '',
     school_email: '',
     school_logo_url: '',
+    late_time: '07:30',
   });
   
   const [profileForm, setProfileForm] = useState({
@@ -48,6 +49,7 @@ const Settings = () => {
         school_phone: settings.school_phone || '',
         school_email: settings.school_email || '',
         school_logo_url: settings.school_logo_url || '',
+        late_time: settings.late_time ? settings.late_time.slice(0, 5) : '07:30',
       });
     }
   }, [settings]);
@@ -136,7 +138,10 @@ const Settings = () => {
       toast.error(error);
       return;
     }
-    await updateSettings.mutateAsync(schoolForm);
+    await updateSettings.mutateAsync({
+      ...schoolForm,
+      late_time: schoolForm.late_time + ':00',
+    });
   };
 
   const handleSaveProfile = async () => {
@@ -299,6 +304,22 @@ const Settings = () => {
                       placeholder="(021) 123-4567"
                     />
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="late_time" className="flex items-center gap-2">
+                    <Clock className="w-4 h-4" />
+                    Batas Jam Masuk
+                  </Label>
+                  <Input
+                    id="late_time"
+                    type="time"
+                    value={schoolForm.late_time}
+                    onChange={(e) => setSchoolForm({ ...schoolForm, late_time: e.target.value })}
+                    className="max-w-xs"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Siswa yang datang setelah jam ini akan dianggap terlambat
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="school_address">Alamat Sekolah</Label>
