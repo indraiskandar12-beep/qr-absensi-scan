@@ -112,7 +112,8 @@ const Dashboard = () => {
                       <TableHead>No</TableHead>
                       <TableHead>Nama Siswa</TableHead>
                       <TableHead>Kelas</TableHead>
-                      <TableHead>Waktu Masuk</TableHead>
+                      <TableHead>Jam Datang</TableHead>
+                      <TableHead>Jam Pulang</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -122,7 +123,20 @@ const Dashboard = () => {
                         <TableCell className="font-medium">{index + 1}</TableCell>
                         <TableCell>{attendance.student?.full_name || '-'}</TableCell>
                         <TableCell>{attendance.student?.class_name || '-'}</TableCell>
-                        <TableCell>{attendance.time_in}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
+                            {attendance.time_in}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {attendance.time_out ? (
+                            <Badge variant="outline" className="bg-orange-500/10 text-orange-600 border-orange-500/20">
+                              {attendance.time_out}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
                         <TableCell>
                           <Badge variant="default" className="bg-success text-success-foreground">
                             {attendance.status}

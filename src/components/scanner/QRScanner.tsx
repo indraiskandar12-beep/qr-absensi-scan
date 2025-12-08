@@ -1,23 +1,24 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
-import { Camera, X, Volume2, VolumeX } from 'lucide-react';
+import { Camera, X, Volume2, VolumeX, LogIn, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { useRecordAttendance } from '@/hooks/useAttendances';
+import { useRecordAttendance, AttendanceMode } from '@/hooks/useAttendances';
 import { cn } from '@/lib/utils';
-import { Student } from '@/types';
 
 type ScanResult = {
   type: 'success' | 'warning' | 'error';
   message: string;
   studentName?: string;
   studentClass?: string;
+  timeInfo?: string;
 } | null;
 
 const QRScanner = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [mode, setMode] = useState<AttendanceMode>('check_in');
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const recordAttendance = useRecordAttendance();
 
@@ -83,21 +84,43 @@ const QRScanner = () => {
       return;
     }
 
+    const currentTime = new Date().toLocaleTimeString('id-ID', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+
     try {
-      await recordAttendance.mutateAsync(student.id);
+      await recordAttendance.mutateAsync({ studentId: student.id, mode });
       playSound('success');
       setScanResult({
         type: 'success',
-        message: 'ABSENSI BERHASIL!',
+        message: mode === 'check_in' ? 'ABSENSI DATANG BERHASIL!' : 'ABSENSI PULANG BERHASIL!',
         studentName: student.full_name,
         studentClass: student.class_name,
+        timeInfo: currentTime,
       });
     } catch (error: any) {
-      if (error.message === 'ALREADY_ATTENDED') {
+      if (error.message === 'ALREADY_CHECKED_IN') {
         playSound('warning');
         setScanResult({
           type: 'warning',
-          message: 'SUDAH ABSEN HARI INI!',
+          message: 'SUDAH ABSEN DATANG!',
+          studentName: student.full_name,
+          studentClass: student.class_name,
+        });
+      } else if (error.message === 'NOT_CHECKED_IN') {
+        playSound('warning');
+        setScanResult({
+          type: 'warning',
+          message: 'BELUM ABSEN DATANG!',
+          studentName: student.full_name,
+          studentClass: student.class_name,
+        });
+      } else if (error.message === 'ALREADY_CHECKED_OUT') {
+        playSound('warning');
+        setScanResult({
+          type: 'warning',
+          message: 'SUDAH ABSEN PULANG!',
           studentName: student.full_name,
           studentClass: student.class_name,
         });
@@ -111,7 +134,7 @@ const QRScanner = () => {
     }
 
     setTimeout(() => setScanResult(null), 3000);
-  }, [recordAttendance, playSound]);
+  }, [recordAttendance, playSound, mode]);
 
   const startScanner = async () => {
     try {
@@ -158,12 +181,43 @@ const QRScanner = () => {
     <div className="min-h-[calc(100vh-8rem)] flex flex-col items-center justify-center p-4">
       {/* Scanner Container */}
       <div className="w-full max-w-md bg-card rounded-2xl shadow-lg overflow-hidden">
-        <div className="bg-primary p-4 text-center">
+        <div className={cn(
+          "p-4 text-center transition-colors",
+          mode === 'check_in' ? "bg-primary" : "bg-orange-500"
+        )}>
           <h2 className="text-xl font-bold text-primary-foreground">Scanner Absensi</h2>
-          <p className="text-primary-foreground/80 text-sm">Arahkan kamera ke QR Code siswa</p>
+          <p className="text-primary-foreground/80 text-sm">
+            Mode: {mode === 'check_in' ? 'Absensi Datang' : 'Absensi Pulang'}
+          </p>
         </div>
         
         <div className="p-4">
+          {/* Mode Toggle */}
+          <div className="flex gap-2 mb-4">
+            <Button
+              variant={mode === 'check_in' ? 'default' : 'outline'}
+              className={cn(
+                "flex-1 h-12",
+                mode === 'check_in' && "bg-primary hover:bg-primary/90"
+              )}
+              onClick={() => setMode('check_in')}
+            >
+              <LogIn className="w-4 h-4 mr-2" />
+              Datang
+            </Button>
+            <Button
+              variant={mode === 'check_out' ? 'default' : 'outline'}
+              className={cn(
+                "flex-1 h-12",
+                mode === 'check_out' && "bg-orange-500 hover:bg-orange-600"
+              )}
+              onClick={() => setMode('check_out')}
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Pulang
+            </Button>
+          </div>
+
           {/* QR Reader Container */}
           <div className="relative aspect-square bg-muted rounded-xl overflow-hidden">
             <div id="qr-reader" className="w-full h-full" />
@@ -183,7 +237,10 @@ const QRScanner = () => {
             {!isScanning ? (
               <Button 
                 onClick={startScanner} 
-                className="flex-1 h-14 text-lg"
+                className={cn(
+                  "flex-1 h-14 text-lg",
+                  mode === 'check_out' && "bg-orange-500 hover:bg-orange-600"
+                )}
                 size="lg"
               >
                 <Camera className="w-5 h-5 mr-2" />
@@ -234,6 +291,11 @@ const QRScanner = () => {
               <div className="mt-4 text-white">
                 <p className="text-xl font-semibold">{scanResult.studentName}</p>
                 <p className="text-lg opacity-90">{scanResult.studentClass}</p>
+                {scanResult.timeInfo && (
+                  <p className="text-lg mt-2 font-mono bg-white/20 rounded-lg py-1 px-3 inline-block">
+                    {scanResult.timeInfo}
+                  </p>
+                )}
               </div>
             )}
           </div>
