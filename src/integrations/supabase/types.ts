@@ -80,6 +80,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          late_time: string | null
           school_address: string | null
           school_email: string | null
           school_logo_url: string | null
@@ -90,6 +91,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          late_time?: string | null
           school_address?: string | null
           school_email?: string | null
           school_logo_url?: string | null
@@ -100,6 +102,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          late_time?: string | null
           school_address?: string | null
           school_email?: string | null
           school_logo_url?: string | null

@@ -9,6 +9,7 @@ export interface SchoolSettings {
   school_logo_url: string | null;
   school_phone: string | null;
   school_email: string | null;
+  late_time: string | null;
   created_at: string;
   updated_at: string;
 }

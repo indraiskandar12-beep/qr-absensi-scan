@@ -1,6 +1,8 @@
-import { Users, UserCheck, UserX, Clock, LogOut } from 'lucide-react';
+import { Users, UserCheck, UserX, Clock, LogOut, AlertTriangle } from 'lucide-react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import StatCard from '@/components/dashboard/StatCard';
+import AttendanceChart from '@/components/dashboard/AttendanceChart';
+import LateStudentsNotification from '@/components/dashboard/LateStudentsNotification';
 import { useStudents } from '@/hooks/useStudents';
 import { useTodayAttendances } from '@/hooks/useAttendances';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
@@ -22,8 +24,10 @@ const Dashboard = () => {
   const { data: todayAttendances = [], isLoading: loadingAttendances } = useTodayAttendances();
   const { data: schoolSettings } = useSchoolSettings();
   
+  const lateTime = schoolSettings?.late_time || '07:30:00';
   const activeStudents = students.filter(s => s.is_active);
   const presentToday = todayAttendances.filter(a => a.status === 'Hadir').length;
+  const lateToday = todayAttendances.filter(a => a.time_in > lateTime).length;
   const checkedOutToday = todayAttendances.filter(a => a.time_out !== null).length;
   const absentToday = activeStudents.length - todayAttendances.length;
 
@@ -63,7 +67,7 @@ const Dashboard = () => {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
           <StatCard
             title="Total Siswa Aktif"
             value={activeStudents.length}
@@ -77,6 +81,13 @@ const Dashboard = () => {
             icon={UserCheck}
             variant="green"
             subtitle="Sudah absen datang"
+          />
+          <StatCard
+            title="Terlambat"
+            value={lateToday}
+            icon={AlertTriangle}
+            variant="yellow"
+            subtitle={`Setelah ${lateTime.slice(0,5)}`}
           />
           <StatCard
             title="Sudah Pulang"
@@ -96,9 +107,15 @@ const Dashboard = () => {
             title="Persentase"
             value={activeStudents.length > 0 ? Math.round((presentToday / activeStudents.length) * 100) + '%' : '0%'}
             icon={Clock}
-            variant="yellow"
+            variant="purple"
             subtitle="Kehadiran hari ini"
           />
+        </div>
+
+        {/* Charts and Notifications */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <AttendanceChart lateTime={lateTime} />
+          <LateStudentsNotification lateTime={lateTime} />
         </div>
 
         {/* Recent Attendance */}

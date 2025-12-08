@@ -5,7 +5,7 @@ interface StatCardProps {
   title: string;
   value: number | string;
   icon: LucideIcon;
-  variant: 'blue' | 'green' | 'yellow' | 'red' | 'orange';
+  variant: 'blue' | 'green' | 'yellow' | 'red' | 'orange' | 'purple';
   subtitle?: string;
 }
 
@@ -16,6 +16,7 @@ const StatCard = ({ title, value, icon: Icon, variant, subtitle }: StatCardProps
     yellow: 'stat-card-yellow',
     red: 'stat-card-red',
     orange: 'stat-card-orange',
+    purple: 'stat-card-purple',
   };
 
   return (
