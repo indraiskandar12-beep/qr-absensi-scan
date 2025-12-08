@@ -29,6 +29,28 @@ export const useAttendances = (date?: string) => {
   });
 };
 
+export const useMonthlyAttendances = (startDate: string, endDate: string) => {
+  return useQuery({
+    queryKey: ['attendances', 'monthly', startDate, endDate],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('attendances')
+        .select(`
+          *,
+          student:students(*)
+        `)
+        .gte('attendance_date', startDate)
+        .lte('attendance_date', endDate)
+        .order('attendance_date', { ascending: false })
+        .order('time_in', { ascending: false });
+      
+      if (error) throw error;
+      return data as Attendance[];
+    },
+    enabled: !!startDate && !!endDate,
+  });
+};
+
 export const useTodayAttendances = () => {
   const today = new Date().toISOString().split('T')[0];
   return useAttendances(today);

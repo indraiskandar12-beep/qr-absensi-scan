@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Save, Building2, User } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Save, Building2, User, Upload, X } from 'lucide-react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { useSchoolSettings, useUpdateSchoolSettings } from '@/hooks/useSchoolSettings';
 import { useAuth } from '@/hooks/useAuth';
@@ -13,11 +13,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { schoolSettingsSchema, profileSchema, passwordChangeSchema, getValidationError } from '@/lib/validations';
+import schoolLogoDefault from '@/assets/school-logo.png';
 
 const Settings = () => {
-  const { data: settings, isLoading } = useSchoolSettings();
+  const { data: settings, isLoading, refetch } = useSchoolSettings();
   const updateSettings = useUpdateSchoolSettings();
   const { profile, user } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [schoolForm, setSchoolForm] = useState({
     school_name: '',
@@ -35,6 +37,8 @@ const Settings = () => {
     newPassword: '',
     confirmPassword: '',
   });
+
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (settings) {
@@ -55,6 +59,76 @@ const Settings = () => {
       });
     }
   }, [profile]);
+
+  const handleUploadLogo = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('File harus berupa gambar');
+      return;
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Ukuran file maksimal 2MB');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      // Generate unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `school-logo-${Date.now()}.${fileExt}`;
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('school-logos')
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('school-logos')
+        .getPublicUrl(fileName);
+
+      const logoUrl = urlData.publicUrl;
+
+      // Update school settings with new logo URL
+      await updateSettings.mutateAsync({
+        ...schoolForm,
+        school_logo_url: logoUrl,
+      });
+
+      setSchoolForm(prev => ({ ...prev, school_logo_url: logoUrl }));
+      toast.success('Logo berhasil diupload!');
+      refetch();
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast.error('Gagal mengupload logo: ' + error.message);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleRemoveLogo = async () => {
+    try {
+      await updateSettings.mutateAsync({
+        ...schoolForm,
+        school_logo_url: '',
+      });
+      setSchoolForm(prev => ({ ...prev, school_logo_url: '' }));
+      toast.success('Logo berhasil dihapus');
+      refetch();
+    } catch (error: any) {
+      toast.error('Gagal menghapus logo: ' + error.message);
+    }
+  };
 
   const handleSaveSchool = async () => {
     const error = getValidationError(schoolSettingsSchema, schoolForm);
@@ -144,7 +218,58 @@ const Settings = () => {
                   Pengaturan ini akan digunakan pada kartu siswa dan laporan
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-6">
+                {/* Logo Upload Section */}
+                <div className="space-y-4">
+                  <Label>Logo Sekolah</Label>
+                  <div className="flex items-start gap-6">
+                    <div className="w-32 h-32 border-2 border-dashed rounded-lg overflow-hidden bg-muted flex items-center justify-center">
+                      <img 
+                        src={schoolForm.school_logo_url || schoolLogoDefault} 
+                        alt="Logo sekolah" 
+                        className="w-full h-full object-contain p-2"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = schoolLogoDefault;
+                        }}
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleUploadLogo}
+                        className="hidden"
+                        id="logo-upload"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        {uploading ? 'Mengupload...' : 'Upload Logo Baru'}
+                      </Button>
+                      {schoolForm.school_logo_url && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleRemoveLogo}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <X className="w-4 h-4 mr-2" />
+                          Hapus Logo
+                        </Button>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        Format: JPG, PNG, GIF. Maksimal 2MB.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="school_name">Nama Sekolah</Label>
@@ -174,15 +299,6 @@ const Settings = () => {
                       placeholder="(021) 123-4567"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="school_logo_url">URL Logo Sekolah</Label>
-                    <Input
-                      id="school_logo_url"
-                      value={schoolForm.school_logo_url}
-                      onChange={(e) => setSchoolForm({ ...schoolForm, school_logo_url: e.target.value })}
-                      placeholder="https://example.com/logo.png"
-                    />
-                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="school_address">Alamat Sekolah</Label>
@@ -194,21 +310,6 @@ const Settings = () => {
                     rows={3}
                   />
                 </div>
-                {schoolForm.school_logo_url && (
-                  <div className="space-y-2">
-                    <Label>Preview Logo</Label>
-                    <div className="w-24 h-24 border rounded-lg overflow-hidden bg-muted flex items-center justify-center">
-                      <img 
-                        src={schoolForm.school_logo_url} 
-                        alt="Logo sekolah" 
-                        className="w-full h-full object-contain"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = 'none';
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
                 <Button onClick={handleSaveSchool} disabled={updateSettings.isPending}>
                   <Save className="w-4 h-4 mr-2" />
                   {updateSettings.isPending ? 'Menyimpan...' : 'Simpan Pengaturan'}

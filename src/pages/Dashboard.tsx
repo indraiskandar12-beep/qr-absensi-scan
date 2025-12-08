@@ -1,4 +1,4 @@
-import { Users, UserCheck, UserX, Clock } from 'lucide-react';
+import { Users, UserCheck, UserX, Clock, LogOut } from 'lucide-react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import StatCard from '@/components/dashboard/StatCard';
 import { useStudents } from '@/hooks/useStudents';
@@ -24,6 +24,7 @@ const Dashboard = () => {
   
   const activeStudents = students.filter(s => s.is_active);
   const presentToday = todayAttendances.filter(a => a.status === 'Hadir').length;
+  const checkedOutToday = todayAttendances.filter(a => a.time_out !== null).length;
   const absentToday = activeStudents.length - todayAttendances.length;
 
   if (loadingStudents || loadingAttendances) {
@@ -62,7 +63,7 @@ const Dashboard = () => {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <StatCard
             title="Total Siswa Aktif"
             value={activeStudents.length}
@@ -75,7 +76,14 @@ const Dashboard = () => {
             value={presentToday}
             icon={UserCheck}
             variant="green"
-            subtitle="Sudah absen"
+            subtitle="Sudah absen datang"
+          />
+          <StatCard
+            title="Sudah Pulang"
+            value={checkedOutToday}
+            icon={LogOut}
+            variant="orange"
+            subtitle="Sudah absen pulang"
           />
           <StatCard
             title="Belum Hadir"
