@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useSchoolSettings } from '@/hooks/useSchoolSettings';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { toast } from 'sonner';
 import { Lock, Mail, ShieldAlert } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import schoolLogo from '@/assets/school-logo.png';
+import defaultLogo from '@/assets/school-logo.png';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -16,6 +17,9 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const { signIn } = useAuth();
   const navigate = useNavigate();
+  const { data: settings } = useSchoolSettings();
+  
+  const logoUrl = settings?.school_logo_url || defaultLogo;
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,12 +44,12 @@ const Login = () => {
       <Card className="w-full max-w-md shadow-2xl border-0">
         <CardHeader className="space-y-4 text-center pb-2">
           <div className="mx-auto w-24 h-24 rounded-full bg-white flex items-center justify-center shadow-lg overflow-hidden">
-            <img src={schoolLogo} alt="Logo SMAN 1 Manonjaya" className="w-20 h-20 object-contain" />
+            <img src={logoUrl} alt={settings?.school_name || "Logo Sekolah"} className="w-20 h-20 object-contain" />
           </div>
           <div>
             <CardTitle className="text-2xl font-bold">Sistem Absensi Siswa</CardTitle>
             <CardDescription className="text-base mt-2">
-              SMAN 1 Manonjaya
+              {settings?.school_name || 'SMAN 1 Manonjaya'}
             </CardDescription>
           </div>
         </CardHeader>
