@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useRecordAttendance, AttendanceMode } from '@/hooks/useAttendances';
 import { cn } from '@/lib/utils';
+import ManualCheckoutDialog from './ManualCheckoutDialog';
 
 type ScanResult = {
   type: 'success' | 'warning' | 'error';
@@ -22,7 +23,7 @@ const QRScanner = () => {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const recordAttendance = useRecordAttendance();
 
-  const playSound = useCallback((type: 'success' | 'warning' | 'error') => {
+  const playSound = useCallback((type: 'success' | 'warning' | 'error', attendanceMode: AttendanceMode = 'check_in') => {
     if (!soundEnabled) return;
     
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -33,12 +34,26 @@ const QRScanner = () => {
     gainNode.connect(audioContext.destination);
     
     if (type === 'success') {
-      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-      oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.3);
+      if (attendanceMode === 'check_in') {
+        // Check-in: Bright ascending tone (cheerful welcome)
+        oscillator.frequency.setValueAtTime(600, audioContext.currentTime);
+        oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.1);
+        oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.2);
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.4);
+      } else {
+        // Check-out: Descending double beep (goodbye signal)
+        oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+        oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.15);
+        gainNode.gain.setValueAtTime(0.25, audioContext.currentTime);
+        gainNode.gain.setValueAtTime(0.01, audioContext.currentTime + 0.18);
+        gainNode.gain.setValueAtTime(0.25, audioContext.currentTime + 0.22);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.5);
+      }
     } else if (type === 'warning') {
       oscillator.frequency.setValueAtTime(400, audioContext.currentTime);
       oscillator.frequency.setValueAtTime(300, audioContext.currentTime + 0.15);
@@ -91,7 +106,7 @@ const QRScanner = () => {
 
     try {
       await recordAttendance.mutateAsync({ studentId: student.id, mode });
-      playSound('success');
+      playSound('success', mode);
       setScanResult({
         type: 'success',
         message: mode === 'check_in' ? 'ABSENSI DATANG BERHASIL!' : 'ABSENSI PULANG BERHASIL!',
@@ -267,6 +282,11 @@ const QRScanner = () => {
             >
               {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
             </Button>
+          </div>
+          
+          {/* Manual Checkout Button */}
+          <div className="mt-4">
+            <ManualCheckoutDialog />
           </div>
         </div>
       </div>
