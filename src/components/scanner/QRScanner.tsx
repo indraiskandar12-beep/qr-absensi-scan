@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
-import { Camera, X, Volume2, VolumeX, LogIn, LogOut, Bluetooth } from 'lucide-react';
+import { Camera, X, Volume2, VolumeX, LogIn, LogOut, Bluetooth, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,6 +8,7 @@ import { useRecordAttendance, AttendanceMode } from '@/hooks/useAttendances';
 import { cn } from '@/lib/utils';
 import ManualCheckoutDialog from './ManualCheckoutDialog';
 import { toast } from 'sonner';
+import { useSchoolSettings } from '@/hooks/useSchoolSettings';
 
 type ScanResult = {
   type: 'success' | 'warning' | 'error';
@@ -19,6 +20,9 @@ type ScanResult = {
 
 type ScannerMode = 'camera' | 'barcode';
 
+// Default auto-switch time to check-out mode (can be configured)
+const DEFAULT_AUTO_SWITCH_TIME = '12:00';
+
 const QRScanner = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult>(null);
@@ -27,9 +31,13 @@ const QRScanner = () => {
   const [scannerMode, setScannerMode] = useState<ScannerMode>('camera');
   const [barcodeInput, setBarcodeInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [autoSwitchEnabled, setAutoSwitchEnabled] = useState(true);
   const barcodeInputRef = useRef<HTMLInputElement>(null);
+  const barcodeBufferRef = useRef<string>('');
+  const barcodeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const recordAttendance = useRecordAttendance();
+  const { data: schoolSettings } = useSchoolSettings();
 
   const playSound = useCallback((type: 'success' | 'warning' | 'error', attendanceMode: AttendanceMode = 'check_in') => {
     if (!soundEnabled) return;
@@ -160,7 +168,7 @@ const QRScanner = () => {
     setTimeout(() => setScanResult(null), 3000);
   }, [recordAttendance, playSound, mode]);
 
-  // Handle barcode scanner input
+  // Handle barcode scanner input from input field
   const handleBarcodeKeyDown = useCallback(async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && barcodeInput.trim() && !isProcessing) {
       e.preventDefault();
@@ -173,13 +181,87 @@ const QRScanner = () => {
     }
   }, [barcodeInput, handleScanSuccess, isProcessing]);
 
+  // Global keyboard listener for barcode scanner (HID device)
+  useEffect(() => {
+    if (scannerMode !== 'barcode') return;
+
+    const handleGlobalKeyDown = async (e: KeyboardEvent) => {
+      // Ignore if typing in other inputs or if already processing
+      const target = e.target as HTMLElement;
+      const isInputField = target.tagName === 'INPUT' && target !== barcodeInputRef.current;
+      if (isInputField || isProcessing) return;
+
+      // Clear existing timeout
+      if (barcodeTimeoutRef.current) {
+        clearTimeout(barcodeTimeoutRef.current);
+      }
+
+      if (e.key === 'Enter') {
+        // Process the buffered barcode
+        const barcode = barcodeBufferRef.current.trim();
+        if (barcode && !isProcessing) {
+          setIsProcessing(true);
+          setBarcodeInput(barcode);
+          await handleScanSuccess(barcode);
+          setBarcodeInput('');
+          setIsProcessing(false);
+        }
+        barcodeBufferRef.current = '';
+        return;
+      }
+
+      // Append printable characters to buffer
+      if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        barcodeBufferRef.current += e.key;
+        setBarcodeInput(barcodeBufferRef.current);
+        
+        // Auto-clear buffer after 100ms of inactivity (typical scanner sends data fast)
+        barcodeTimeoutRef.current = setTimeout(() => {
+          barcodeBufferRef.current = '';
+          setBarcodeInput('');
+        }, 500);
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown);
+      if (barcodeTimeoutRef.current) {
+        clearTimeout(barcodeTimeoutRef.current);
+      }
+    };
+  }, [scannerMode, handleScanSuccess, isProcessing]);
+
   // Auto-focus barcode input when switching to barcode mode
   useEffect(() => {
     if (scannerMode === 'barcode') {
       setTimeout(() => barcodeInputRef.current?.focus(), 100);
-      toast.info('Mode Barcode Scanner aktif. Pastikan scanner Bluetooth terhubung.');
+      toast.info('Mode Barcode Scanner aktif. Scanner Bluetooth siap digunakan!');
     }
   }, [scannerMode]);
+
+  // Auto-switch to check-out mode after specified time
+  useEffect(() => {
+    if (!autoSwitchEnabled) return;
+
+    const checkAutoSwitch = () => {
+      const now = new Date();
+      const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      const switchTime = schoolSettings?.late_time?.slice(0, 5) || DEFAULT_AUTO_SWITCH_TIME;
+      
+      // If current time >= switch time, auto-switch to check-out
+      if (currentTime >= switchTime && mode === 'check_in') {
+        setMode('check_out');
+        toast.info(`Mode otomatis berubah ke Pulang (setelah jam ${switchTime})`);
+      }
+    };
+
+    // Check on mount and every minute
+    checkAutoSwitch();
+    const interval = setInterval(checkAutoSwitch, 60000);
+    
+    return () => clearInterval(interval);
+  }, [autoSwitchEnabled, schoolSettings?.late_time, mode]);
 
   const startScanner = async () => {
     try {
@@ -278,7 +360,10 @@ const QRScanner = () => {
                 "flex-1 h-12",
                 mode === 'check_in' && "bg-primary hover:bg-primary/90"
               )}
-              onClick={() => setMode('check_in')}
+              onClick={() => {
+                setMode('check_in');
+                setAutoSwitchEnabled(false);
+              }}
             >
               <LogIn className="w-4 h-4 mr-2" />
               Datang
@@ -289,10 +374,30 @@ const QRScanner = () => {
                 "flex-1 h-12",
                 mode === 'check_out' && "bg-warning hover:bg-warning/90 text-warning-foreground"
               )}
-              onClick={() => setMode('check_out')}
+              onClick={() => {
+                setMode('check_out');
+                setAutoSwitchEnabled(false);
+              }}
             >
               <LogOut className="w-4 h-4 mr-2" />
               Pulang
+            </Button>
+          </div>
+
+          {/* Auto-switch indicator */}
+          <div className="flex items-center justify-center gap-2 mb-4 text-xs text-muted-foreground">
+            <Clock className="w-3 h-3" />
+            <span>
+              Auto-switch ke Pulang: {schoolSettings?.late_time?.slice(0, 5) || DEFAULT_AUTO_SWITCH_TIME}
+              {autoSwitchEnabled ? ' (aktif)' : ' (nonaktif)'}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-xs"
+              onClick={() => setAutoSwitchEnabled(!autoSwitchEnabled)}
+            >
+              {autoSwitchEnabled ? 'Matikan' : 'Aktifkan'}
             </Button>
           </div>
 
