@@ -15,8 +15,17 @@ import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
-import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
+import { format, startOfMonth, endOfMonth, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
+
+// Helper to format date in Indonesian
+const formatDateIndonesia = (dateString: string): string => {
+  try {
+    return format(parseISO(dateString), 'd MMMM yyyy', { locale: localeId });
+  } catch {
+    return dateString;
+  }
+};
 
 const Reports = () => {
   const now = new Date();
@@ -47,7 +56,7 @@ const Reports = () => {
       'NISN': a.student?.nisn || '-',
       'Nama': a.student?.full_name || '-',
       'Kelas': a.student?.class_name || '-',
-      'Tanggal': a.attendance_date,
+      'Tanggal': formatDateIndonesia(a.attendance_date),
       'Jam Datang': a.time_in,
       'Jam Pulang': a.time_out || '-',
       'Status': a.status
@@ -100,7 +109,7 @@ const Reports = () => {
       a.student?.nisn || '-',
       a.student?.full_name || '-',
       a.student?.class_name || '-',
-      a.attendance_date,
+      formatDateIndonesia(a.attendance_date),
       a.time_in,
       a.time_out || '-',
       a.status
@@ -117,6 +126,61 @@ const Reports = () => {
 
     doc.save(`rekap-absensi-${startDate}-to-${endDate}.pdf`);
     toast.success('Data berhasil diekspor ke PDF!');
+  };
+
+  const handleExportDailyPDF = () => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const todayAttendances = attendances.filter(a => a.attendance_date === today);
+    
+    if (todayAttendances.length === 0) {
+      toast.error('Tidak ada data absensi hari ini untuk diekspor');
+      return;
+    }
+
+    const doc = new jsPDF();
+    
+    // Title
+    doc.setFontSize(16);
+    doc.text('Laporan Absensi Harian', 14, 15);
+    
+    // Date info
+    doc.setFontSize(10);
+    const formattedToday = format(new Date(), 'd MMMM yyyy', { locale: localeId });
+    doc.text(`Tanggal: ${formattedToday}`, 14, 22);
+    doc.text(`Total Siswa: ${todayAttendances.length}`, 14, 28);
+    
+    // Summary
+    const todaySummary = {
+      hadir: todayAttendances.filter(a => a.status === 'Hadir').length,
+      izin: todayAttendances.filter(a => a.status === 'Izin').length,
+      sakit: todayAttendances.filter(a => a.status === 'Sakit').length,
+      alpha: todayAttendances.filter(a => a.status === 'Alpha').length,
+      sudahPulang: todayAttendances.filter(a => a.time_out).length,
+    };
+    doc.text(`Hadir: ${todaySummary.hadir} | Izin: ${todaySummary.izin} | Sakit: ${todaySummary.sakit} | Alpha: ${todaySummary.alpha} | Sudah Pulang: ${todaySummary.sudahPulang}`, 14, 34);
+
+    // Table
+    const tableData = todayAttendances.map((a, index) => [
+      index + 1,
+      a.student?.nisn || '-',
+      a.student?.full_name || '-',
+      a.student?.class_name || '-',
+      a.time_in,
+      a.time_out || '-',
+      a.status
+    ]);
+
+    autoTable(doc, {
+      head: [['No', 'NISN', 'Nama', 'Kelas', 'Jam Datang', 'Jam Pulang', 'Status']],
+      body: tableData,
+      startY: 42,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [34, 197, 94] },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+    });
+
+    doc.save(`absensi-harian-${today}.pdf`);
+    toast.success('Laporan harian berhasil diekspor ke PDF!');
   };
 
   const getStatusBadge = (status: string) => {
@@ -149,7 +213,11 @@ const Reports = () => {
             <h1 className="text-2xl font-bold">Rekap Absensi Bulanan</h1>
             <p className="text-muted-foreground mt-1">Laporan data kehadiran siswa dengan filter tanggal</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={handleExportDailyPDF} variant="default" className="bg-success hover:bg-success/90">
+              <Calendar className="w-4 h-4 mr-2" />
+              Ekspor Harian
+            </Button>
             <Button onClick={handleExportExcel} variant="outline">
               <FileSpreadsheet className="w-4 h-4 mr-2" />
               Export Excel
@@ -287,7 +355,7 @@ const Reports = () => {
                         <TableCell className="font-mono text-sm">{a.student?.nisn || '-'}</TableCell>
                         <TableCell className="font-medium">{a.student?.full_name || '-'}</TableCell>
                         <TableCell>{a.student?.class_name || '-'}</TableCell>
-                        <TableCell>{a.attendance_date}</TableCell>
+                        <TableCell>{formatDateIndonesia(a.attendance_date)}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
                             {a.time_in}
