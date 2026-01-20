@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
-import { Camera, X, Volume2, VolumeX, LogIn, LogOut } from 'lucide-react';
+import { Camera, X, Volume2, VolumeX, LogIn, LogOut, Bluetooth } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { useRecordAttendance, AttendanceMode } from '@/hooks/useAttendances';
 import { cn } from '@/lib/utils';
 import ManualCheckoutDialog from './ManualCheckoutDialog';
+import { toast } from 'sonner';
 
 type ScanResult = {
   type: 'success' | 'warning' | 'error';
@@ -15,11 +17,17 @@ type ScanResult = {
   timeInfo?: string;
 } | null;
 
+type ScannerMode = 'camera' | 'barcode';
+
 const QRScanner = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult>(null);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [mode, setMode] = useState<AttendanceMode>('check_in');
+  const [scannerMode, setScannerMode] = useState<ScannerMode>('camera');
+  const [barcodeInput, setBarcodeInput] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const barcodeInputRef = useRef<HTMLInputElement>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const recordAttendance = useRecordAttendance();
 
@@ -152,6 +160,27 @@ const QRScanner = () => {
     setTimeout(() => setScanResult(null), 3000);
   }, [recordAttendance, playSound, mode]);
 
+  // Handle barcode scanner input
+  const handleBarcodeKeyDown = useCallback(async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && barcodeInput.trim() && !isProcessing) {
+      e.preventDefault();
+      setIsProcessing(true);
+      await handleScanSuccess(barcodeInput.trim());
+      setBarcodeInput('');
+      setIsProcessing(false);
+      // Refocus input for next scan
+      setTimeout(() => barcodeInputRef.current?.focus(), 100);
+    }
+  }, [barcodeInput, handleScanSuccess, isProcessing]);
+
+  // Auto-focus barcode input when switching to barcode mode
+  useEffect(() => {
+    if (scannerMode === 'barcode') {
+      setTimeout(() => barcodeInputRef.current?.focus(), 100);
+      toast.info('Mode Barcode Scanner aktif. Pastikan scanner Bluetooth terhubung.');
+    }
+  }, [scannerMode]);
+
   const startScanner = async () => {
     try {
       const html5QrCode = new Html5Qrcode('qr-reader');
@@ -199,16 +228,49 @@ const QRScanner = () => {
       <div className="w-full max-w-md bg-card rounded-2xl shadow-lg overflow-hidden">
         <div className={cn(
           "p-4 text-center transition-colors",
-          mode === 'check_in' ? "bg-primary" : "bg-orange-500"
+          mode === 'check_in' ? "bg-primary" : "bg-warning"
         )}>
           <h2 className="text-xl font-bold text-primary-foreground">Scanner Absensi</h2>
           <p className="text-primary-foreground/80 text-sm">
             Mode: {mode === 'check_in' ? 'Absensi Datang' : 'Absensi Pulang'}
+            {scannerMode === 'barcode' && ' • Barcode Scanner'}
           </p>
         </div>
         
         <div className="p-4">
-          {/* Mode Toggle */}
+          {/* Scanner Mode Toggle */}
+          <div className="flex gap-2 mb-4">
+            <Button
+              variant={scannerMode === 'camera' ? 'default' : 'outline'}
+              className={cn(
+                "flex-1",
+                scannerMode === 'camera' && "bg-secondary text-secondary-foreground"
+              )}
+              onClick={() => {
+                if (isScanning) stopScanner();
+                setScannerMode('camera');
+              }}
+            >
+              <Camera className="w-4 h-4 mr-2" />
+              Kamera
+            </Button>
+            <Button
+              variant={scannerMode === 'barcode' ? 'default' : 'outline'}
+              className={cn(
+                "flex-1",
+                scannerMode === 'barcode' && "bg-info text-info-foreground"
+              )}
+              onClick={() => {
+                if (isScanning) stopScanner();
+                setScannerMode('barcode');
+              }}
+            >
+              <Bluetooth className="w-4 h-4 mr-2" />
+              Barcode
+            </Button>
+          </div>
+
+          {/* Attendance Mode Toggle */}
           <div className="flex gap-2 mb-4">
             <Button
               variant={mode === 'check_in' ? 'default' : 'outline'}
@@ -225,7 +287,7 @@ const QRScanner = () => {
               variant={mode === 'check_out' ? 'default' : 'outline'}
               className={cn(
                 "flex-1 h-12",
-                mode === 'check_out' && "bg-orange-500 hover:bg-orange-600"
+                mode === 'check_out' && "bg-warning hover:bg-warning/90 text-warning-foreground"
               )}
               onClick={() => setMode('check_out')}
             >
@@ -234,55 +296,109 @@ const QRScanner = () => {
             </Button>
           </div>
 
-          {/* QR Reader Container */}
-          <div className="relative aspect-square bg-muted rounded-xl overflow-hidden">
-            <div id="qr-reader" className="w-full h-full" />
-            
-            {!isScanning && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted">
-                <Camera className="w-16 h-16 text-muted-foreground mb-4" />
-                <p className="text-muted-foreground text-center px-4">
-                  Tekan tombol di bawah untuk memulai scanner
+          {/* Camera Scanner */}
+          {scannerMode === 'camera' && (
+            <>
+              <div className="relative aspect-square bg-muted rounded-xl overflow-hidden">
+                <div id="qr-reader" className="w-full h-full" />
+                
+                {!isScanning && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted">
+                    <Camera className="w-16 h-16 text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground text-center px-4">
+                      Tekan tombol di bawah untuk memulai scanner kamera
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3 mt-4">
+                {!isScanning ? (
+                  <Button 
+                    onClick={startScanner} 
+                    className={cn(
+                      "flex-1 h-14 text-lg",
+                      mode === 'check_out' && "bg-warning hover:bg-warning/90 text-warning-foreground"
+                    )}
+                    size="lg"
+                  >
+                    <Camera className="w-5 h-5 mr-2" />
+                    Mulai Scan
+                  </Button>
+                ) : (
+                  <Button 
+                    onClick={stopScanner} 
+                    variant="destructive"
+                    className="flex-1 h-14 text-lg"
+                    size="lg"
+                  >
+                    <X className="w-5 h-5 mr-2" />
+                    Berhenti
+                  </Button>
+                )}
+                
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="h-14"
+                  onClick={() => setSoundEnabled(!soundEnabled)}
+                >
+                  {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+                </Button>
+              </div>
+            </>
+          )}
+
+          {/* Barcode Scanner Mode */}
+          {scannerMode === 'barcode' && (
+            <div className="space-y-4">
+              <div className={cn(
+                "aspect-video flex flex-col items-center justify-center rounded-xl border-2 border-dashed transition-colors",
+                isProcessing ? "border-warning bg-warning/10" : "border-info bg-info/10"
+              )}>
+                <Bluetooth className={cn(
+                  "w-16 h-16 mb-4",
+                  isProcessing ? "text-warning animate-pulse" : "text-info"
+                )} />
+                <p className="text-center px-4 font-medium">
+                  {isProcessing ? 'Memproses...' : 'Barcode Scanner Siap'}
+                </p>
+                <p className="text-muted-foreground text-sm text-center px-4 mt-2">
+                  Arahkan barcode scanner ke kartu siswa
                 </p>
               </div>
-            )}
-          </div>
 
-          {/* Controls */}
-          <div className="flex gap-3 mt-4">
-            {!isScanning ? (
-              <Button 
-                onClick={startScanner} 
-                className={cn(
-                  "flex-1 h-14 text-lg",
-                  mode === 'check_out' && "bg-orange-500 hover:bg-orange-600"
-                )}
+              <div className="space-y-2">
+                <Input
+                  ref={barcodeInputRef}
+                  type="text"
+                  value={barcodeInput}
+                  onChange={(e) => setBarcodeInput(e.target.value)}
+                  onKeyDown={handleBarcodeKeyDown}
+                  placeholder="Scan atau ketik ID siswa..."
+                  className={cn(
+                    "h-14 text-lg text-center font-mono",
+                    mode === 'check_in' ? "focus-visible:ring-primary" : "focus-visible:ring-warning"
+                  )}
+                  autoComplete="off"
+                  autoFocus
+                />
+                <p className="text-xs text-muted-foreground text-center">
+                  Scanner akan otomatis memproses saat Enter ditekan
+                </p>
+              </div>
+
+              <Button
+                variant="outline"
                 size="lg"
+                className="w-full h-12"
+                onClick={() => setSoundEnabled(!soundEnabled)}
               >
-                <Camera className="w-5 h-5 mr-2" />
-                Mulai Scan
+                {soundEnabled ? <Volume2 className="w-5 h-5 mr-2" /> : <VolumeX className="w-5 h-5 mr-2" />}
+                {soundEnabled ? 'Suara Aktif' : 'Suara Mati'}
               </Button>
-            ) : (
-              <Button 
-                onClick={stopScanner} 
-                variant="destructive"
-                className="flex-1 h-14 text-lg"
-                size="lg"
-              >
-                <X className="w-5 h-5 mr-2" />
-                Berhenti
-              </Button>
-            )}
-            
-            <Button
-              variant="outline"
-              size="lg"
-              className="h-14"
-              onClick={() => setSoundEnabled(!soundEnabled)}
-            >
-              {soundEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-            </Button>
-          </div>
+            </div>
+          )}
           
           {/* Manual Checkout Button */}
           <div className="mt-4">
