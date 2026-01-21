@@ -7,8 +7,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useRecordAttendance, AttendanceMode } from '@/hooks/useAttendances';
 import { cn } from '@/lib/utils';
 import ManualCheckoutDialog from './ManualCheckoutDialog';
+import ScanHistory from './ScanHistory';
 import { toast } from 'sonner';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
+import { useQueryClient } from '@tanstack/react-query';
 
 type ScanResult = {
   type: 'success' | 'warning' | 'error';
@@ -38,6 +40,7 @@ const QRScanner = () => {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const recordAttendance = useRecordAttendance();
   const { data: schoolSettings } = useSchoolSettings();
+  const queryClient = useQueryClient();
 
   const playSound = useCallback((type: 'success' | 'warning' | 'error', attendanceMode: AttendanceMode = 'check_in') => {
     if (!soundEnabled) return;
@@ -130,6 +133,8 @@ const QRScanner = () => {
         studentClass: student.class_name,
         timeInfo: currentTime,
       });
+      // Refresh scan history
+      queryClient.invalidateQueries({ queryKey: ['recent-scans'] });
     } catch (error: any) {
       if (error.message === 'ALREADY_CHECKED_IN') {
         playSound('warning');
@@ -508,8 +513,11 @@ const QRScanner = () => {
           {/* Manual Checkout Button */}
           <div className="mt-4">
             <ManualCheckoutDialog />
-          </div>
         </div>
+
+        {/* Scan History */}
+        <ScanHistory />
+      </div>
       </div>
 
       {/* Scan Result Overlay */}
