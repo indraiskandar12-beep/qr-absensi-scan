@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { schoolSettingsSchema, profileSchema, passwordChangeSchema, getValidationError } from '@/lib/validations';
 import schoolLogoDefault from '@/assets/school-logo.png';
+import AutoSwitchSettings from '@/components/settings/AutoSwitchSettings';
 
 const Settings = () => {
   const { data: settings, isLoading, refetch } = useSchoolSettings();
@@ -306,22 +307,6 @@ const Settings = () => {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="late_time" className="flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    Batas Jam Masuk
-                  </Label>
-                  <Input
-                    id="late_time"
-                    type="time"
-                    value={schoolForm.late_time}
-                    onChange={(e) => setSchoolForm({ ...schoolForm, late_time: e.target.value })}
-                    className="max-w-xs"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Siswa yang datang setelah jam ini akan dianggap terlambat
-                  </p>
-                </div>
-                <div className="space-y-2">
                   <Label htmlFor="school_address">Alamat Sekolah</Label>
                   <Textarea
                     id="school_address"
@@ -337,6 +322,20 @@ const Settings = () => {
                 </Button>
               </CardContent>
             </Card>
+
+            {/* Auto-Switch Settings */}
+            <AutoSwitchSettings 
+              lateTime={schoolForm.late_time}
+              onLateTimeChange={(time) => setSchoolForm({ ...schoolForm, late_time: time })}
+            />
+            
+            {/* Save All Button */}
+            <div className="flex justify-end">
+              <Button onClick={handleSaveSchool} disabled={updateSettings.isPending} size="lg">
+                <Save className="w-4 h-4 mr-2" />
+                {updateSettings.isPending ? 'Menyimpan...' : 'Simpan Semua Pengaturan Sekolah'}
+              </Button>
+            </div>
           </TabsContent>
 
           <TabsContent value="profile" className="space-y-6">
