@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
@@ -12,6 +13,7 @@ import Scanner from "./pages/Scanner";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import StaffManagement from "./pages/StaffManagement";
+import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -57,6 +59,7 @@ const AuthRoute = ({ children }: { children: React.ReactNode }) => {
 const AppRoutes = () => (
   <Routes>
     <Route path="/" element={<Navigate to="/login" replace />} />
+    <Route path="/install" element={<Install />} />
     <Route 
       path="/login" 
       element={
@@ -131,6 +134,7 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner position="top-center" />
+        <InstallPrompt />
         <BrowserRouter>
           <AppRoutes />
         </BrowserRouter>
