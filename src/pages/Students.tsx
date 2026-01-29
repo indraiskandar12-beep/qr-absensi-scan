@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Checkbox } from '@/components/ui/checkbox';
 import QRCode from 'qrcode';
 import { Student } from '@/types';
 import { generateStudentCards } from '@/utils/generateStudentCard';
@@ -33,8 +34,9 @@ const Students = () => {
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [formData, setFormData] = useState({ nisn: '', full_name: '', class_name: '', major: '' });
   const [isPrinting, setIsPrinting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const filteredStudents = students.filter(s => 
+  const filteredStudents = students.filter(s =>
     s.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     s.nisn.includes(searchQuery) ||
     s.class_name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -76,14 +78,44 @@ const Students = () => {
   };
 
   const handlePrintCards = async () => {
-    if (filteredStudents.length === 0) return;
+    const studentsToPrint = selectedIds.size > 0 
+      ? filteredStudents.filter(s => selectedIds.has(s.id))
+      : filteredStudents;
+    
+    if (studentsToPrint.length === 0) {
+      toast.error('Pilih minimal 1 siswa untuk dicetak');
+      return;
+    }
+    
     setIsPrinting(true);
     try {
-      await generateStudentCards(filteredStudents, schoolSettings);
+      await generateStudentCards(studentsToPrint, schoolSettings);
+      toast.success(`Berhasil mencetak ${studentsToPrint.length} kartu siswa`);
     } finally {
       setIsPrinting(false);
     }
   };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(new Set(filteredStudents.map(s => s.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleSelectStudent = (studentId: string, checked: boolean) => {
+    const newSelected = new Set(selectedIds);
+    if (checked) {
+      newSelected.add(studentId);
+    } else {
+      newSelected.delete(studentId);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const isAllSelected = filteredStudents.length > 0 && filteredStudents.every(s => selectedIds.has(s.id));
+  const isSomeSelected = filteredStudents.some(s => selectedIds.has(s.id));
 
   if (isLoading) return <AdminLayout><Skeleton className="h-96" /></AdminLayout>;
 
@@ -100,7 +132,8 @@ const Students = () => {
               <Upload className="w-4 h-4 mr-2" />Import
             </Button>
             <Button variant="outline" onClick={handlePrintCards} disabled={filteredStudents.length === 0 || isPrinting}>
-              <Printer className="w-4 h-4 mr-2" />{isPrinting ? 'Memproses...' : 'Cetak Kartu'}
+              <Printer className="w-4 h-4 mr-2" />
+              {isPrinting ? 'Memproses...' : selectedIds.size > 0 ? `Cetak ${selectedIds.size} Kartu` : 'Cetak Semua'}
             </Button>
             <Button onClick={() => { setSelectedStudent(null); setFormData({ nisn: '', full_name: '', class_name: '', major: '' }); setDialogOpen(true); }}>
               <Plus className="w-4 h-4 mr-2" />Tambah Siswa
@@ -118,18 +151,42 @@ const Students = () => {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Daftar Siswa ({filteredStudents.length})</CardTitle></CardHeader>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Daftar Siswa ({filteredStudents.length})</CardTitle>
+              {selectedIds.size > 0 && (
+                <Badge variant="secondary" className="text-sm">
+                  {selectedIds.size} dipilih
+                </Badge>
+              )}
+            </div>
+          </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox 
+                      checked={isAllSelected}
+                      onCheckedChange={handleSelectAll}
+                      aria-label="Pilih semua"
+                      className={isSomeSelected && !isAllSelected ? 'opacity-50' : ''}
+                    />
+                  </TableHead>
                   <TableHead>No</TableHead><TableHead>NISN</TableHead><TableHead>Nama</TableHead>
                   <TableHead>Kelas</TableHead><TableHead>Jurusan</TableHead><TableHead>Status</TableHead><TableHead>Aksi</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredStudents.map((student, index) => (
-                  <TableRow key={student.id}>
+                  <TableRow key={student.id} className={selectedIds.has(student.id) ? 'bg-muted/50' : ''}>
+                    <TableCell>
+                      <Checkbox 
+                        checked={selectedIds.has(student.id)}
+                        onCheckedChange={(checked) => handleSelectStudent(student.id, !!checked)}
+                        aria-label={`Pilih ${student.full_name}`}
+                      />
+                    </TableCell>
                     <TableCell>{index + 1}</TableCell>
                     <TableCell className="font-mono text-sm">{student.nisn}</TableCell>
                     <TableCell className="font-medium">{student.full_name}</TableCell>
