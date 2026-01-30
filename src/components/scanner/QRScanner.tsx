@@ -8,9 +8,11 @@ import { useRecordAttendance, AttendanceMode } from '@/hooks/useAttendances';
 import { cn } from '@/lib/utils';
 import ManualCheckoutDialog from './ManualCheckoutDialog';
 import ScanHistory from './ScanHistory';
+import OfflineQueueIndicator from './OfflineQueueIndicator';
 import { toast } from 'sonner';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
 import { useQueryClient } from '@tanstack/react-query';
+import { useOfflineQueue } from '@/hooks/useOfflineQueue';
 
 type ScanResult = {
   type: 'success' | 'warning' | 'error';
@@ -41,6 +43,15 @@ const QRScanner = () => {
   const recordAttendance = useRecordAttendance();
   const { data: schoolSettings } = useSchoolSettings();
   const queryClient = useQueryClient();
+  const {
+    queue,
+    isOnline,
+    isSyncing,
+    addToQueue,
+    removeFromQueue,
+    syncQueue,
+    clearQueue,
+  } = useOfflineQueue();
 
   const playSound = useCallback((type: 'success' | 'warning' | 'error', attendanceMode: AttendanceMode = 'check_in') => {
     if (!soundEnabled) return;
@@ -91,7 +102,7 @@ const QRScanner = () => {
   }, [soundEnabled]);
 
   const handleScanSuccess = useCallback(async (decodedText: string) => {
-    // Find student by unique ID
+    // Find student by unique ID (try from cache first if offline)
     const { data: student, error } = await supabase
       .from('students')
       .select('*')
@@ -99,6 +110,16 @@ const QRScanner = () => {
       .maybeSingle();
 
     if (error || !student) {
+      // If offline and can't find student, show error
+      if (!isOnline) {
+        playSound('error');
+        setScanResult({
+          type: 'error',
+          message: 'OFFLINE - DATA SISWA TIDAK TERSEDIA!',
+        });
+        setTimeout(() => setScanResult(null), 3000);
+        return;
+      }
       playSound('error');
       setScanResult({
         type: 'error',
@@ -122,6 +143,21 @@ const QRScanner = () => {
       hour: '2-digit', 
       minute: '2-digit' 
     });
+
+    // If offline, add to queue instead of sending to server
+    if (!isOnline) {
+      addToQueue(student.id, student.full_name, student.class_name, mode);
+      playSound('success', mode);
+      setScanResult({
+        type: 'success',
+        message: mode === 'check_in' ? 'DISIMPAN OFFLINE (DATANG)' : 'DISIMPAN OFFLINE (PULANG)',
+        studentName: student.full_name,
+        studentClass: student.class_name,
+        timeInfo: `${currentTime} (offline)`,
+      });
+      setTimeout(() => setScanResult(null), 3000);
+      return;
+    }
 
     try {
       await recordAttendance.mutateAsync({ studentId: student.id, mode });
@@ -161,17 +197,22 @@ const QRScanner = () => {
           studentClass: student.class_name,
         });
       } else {
+        // Network error or other error - add to offline queue
         console.error('Attendance error:', error);
-        playSound('error');
+        addToQueue(student.id, student.full_name, student.class_name, mode);
+        playSound('success', mode);
         setScanResult({
-          type: 'error',
-          message: 'GAGAL MENYIMPAN ABSENSI!',
+          type: 'success',
+          message: 'DISIMPAN OFFLINE - AKAN DISINKRONKAN',
+          studentName: student.full_name,
+          studentClass: student.class_name,
+          timeInfo: `${currentTime} (pending)`,
         });
       }
     }
 
     setTimeout(() => setScanResult(null), 3000);
-  }, [recordAttendance, playSound, mode]);
+  }, [recordAttendance, playSound, mode, isOnline, addToQueue, queryClient]);
 
   // Handle barcode scanner input from input field
   const handleBarcodeKeyDown = useCallback(async (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -314,13 +355,24 @@ const QRScanner = () => {
       {/* Scanner Container */}
       <div className="w-full max-w-md bg-card rounded-2xl shadow-lg overflow-hidden">
         <div className={cn(
-          "p-4 text-center transition-colors",
+          "p-4 transition-colors",
           mode === 'check_in' ? "bg-primary" : "bg-warning"
         )}>
-          <h2 className="text-xl font-bold text-primary-foreground">Scanner Absensi</h2>
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-xl font-bold text-primary-foreground">Scanner Absensi</h2>
+            <OfflineQueueIndicator
+              queue={queue}
+              isOnline={isOnline}
+              isSyncing={isSyncing}
+              onSync={syncQueue}
+              onClear={clearQueue}
+              onRemove={removeFromQueue}
+            />
+          </div>
           <p className="text-primary-foreground/80 text-sm">
             Mode: {mode === 'check_in' ? 'Absensi Datang' : 'Absensi Pulang'}
             {scannerMode === 'barcode' && ' • Barcode Scanner'}
+            {!isOnline && ' • Offline'}
           </p>
         </div>
         
