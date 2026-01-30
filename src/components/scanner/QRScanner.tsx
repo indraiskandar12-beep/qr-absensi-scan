@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
-import { Camera, X, Volume2, VolumeX, LogIn, LogOut, Bluetooth, Clock } from 'lucide-react';
+import { Camera, X, Volume2, VolumeX, LogIn, LogOut, Bluetooth, Clock, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
 import { useQueryClient } from '@tanstack/react-query';
 import { useOfflineQueue } from '@/hooks/useOfflineQueue';
+import { useStudentCache } from '@/hooks/useStudentCache';
 
 type ScanResult = {
   type: 'success' | 'warning' | 'error';
@@ -52,6 +53,12 @@ const QRScanner = () => {
     syncQueue,
     clearQueue,
   } = useOfflineQueue();
+  const {
+    findStudentByUniqueId: findCachedStudent,
+    syncStudentsToCache,
+    getCacheStats,
+    isLoading: isCacheSyncing,
+  } = useStudentCache();
 
   const playSound = useCallback((type: 'success' | 'warning' | 'error', attendanceMode: AttendanceMode = 'check_in') => {
     if (!soundEnabled) return;
@@ -102,31 +109,40 @@ const QRScanner = () => {
   }, [soundEnabled]);
 
   const handleScanSuccess = useCallback(async (decodedText: string) => {
-    // Find student by unique ID (try from cache first if offline)
-    const { data: student, error } = await supabase
-      .from('students')
-      .select('*')
-      .eq('student_unique_id', decodedText)
-      .maybeSingle();
-
-    if (error || !student) {
-      // If offline and can't find student, show error
-      if (!isOnline) {
+    let student = null;
+    
+    // If offline, try to find from cache first
+    if (!isOnline) {
+      student = findCachedStudent(decodedText);
+      
+      if (!student) {
         playSound('error');
         setScanResult({
           type: 'error',
-          message: 'OFFLINE - DATA SISWA TIDAK TERSEDIA!',
+          message: 'DATA SISWA TIDAK TERSEDIA OFFLINE!',
         });
         setTimeout(() => setScanResult(null), 3000);
         return;
       }
-      playSound('error');
-      setScanResult({
-        type: 'error',
-        message: 'QR CODE TIDAK VALID!',
-      });
-      setTimeout(() => setScanResult(null), 3000);
-      return;
+    } else {
+      // Online: fetch from server
+      const { data, error } = await supabase
+        .from('students')
+        .select('*')
+        .eq('student_unique_id', decodedText)
+        .maybeSingle();
+      
+      if (error || !data) {
+        playSound('error');
+        setScanResult({
+          type: 'error',
+          message: 'QR CODE TIDAK VALID!',
+        });
+        setTimeout(() => setScanResult(null), 3000);
+        return;
+      }
+      
+      student = data;
     }
 
     if (!student.is_active) {
@@ -212,7 +228,7 @@ const QRScanner = () => {
     }
 
     setTimeout(() => setScanResult(null), 3000);
-  }, [recordAttendance, playSound, mode, isOnline, addToQueue, queryClient]);
+  }, [recordAttendance, playSound, mode, isOnline, addToQueue, queryClient, findCachedStudent]);
 
   // Handle barcode scanner input from input field
   const handleBarcodeKeyDown = useCallback(async (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -369,11 +385,30 @@ const QRScanner = () => {
               onRemove={removeFromQueue}
             />
           </div>
-          <p className="text-primary-foreground/80 text-sm">
-            Mode: {mode === 'check_in' ? 'Absensi Datang' : 'Absensi Pulang'}
-            {scannerMode === 'barcode' && ' • Barcode Scanner'}
-            {!isOnline && ' • Offline'}
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-primary-foreground/80 text-sm">
+              Mode: {mode === 'check_in' ? 'Absensi Datang' : 'Absensi Pulang'}
+              {scannerMode === 'barcode' && ' • Barcode Scanner'}
+              {!isOnline && ' • Offline'}
+            </p>
+            {/* Cache sync button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-xs text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10"
+              onClick={() => syncStudentsToCache().then(success => {
+                if (success) {
+                  const stats = getCacheStats();
+                  toast.success(`${stats.count} data siswa tersimpan untuk offline`);
+                }
+              })}
+              disabled={!isOnline || isCacheSyncing}
+              title="Sync data siswa untuk offline"
+            >
+              <RefreshCw className={cn("w-3 h-3 mr-1", isCacheSyncing && "animate-spin")} />
+              {isCacheSyncing ? 'Syncing...' : `Cache: ${getCacheStats().count}`}
+            </Button>
+          </div>
         </div>
         
         <div className="p-4">
