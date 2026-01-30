@@ -16,36 +16,8 @@ export default defineConfig(({ mode }) => ({
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "robots.txt", "placeholder.svg"],
-      manifest: {
-        name: "Sistem Absensi Siswa - SMAN 1 Manonjaya",
-        short_name: "Absensi SMAN 1",
-        description: "Sistem manajemen dan absensi siswa berbasis web dengan pemindaian QR Code",
-        theme_color: "#1e4b7a",
-        background_color: "#f8fafc",
-        display: "standalone",
-        orientation: "portrait",
-        start_url: "/",
-        scope: "/",
-        icons: [
-          {
-            src: "/pwa-192x192.png",
-            sizes: "192x192",
-            type: "image/png",
-          },
-          {
-            src: "/pwa-512x512.png",
-            sizes: "512x512",
-            type: "image/png",
-          },
-          {
-            src: "/pwa-512x512.png",
-            sizes: "512x512",
-            type: "image/png",
-            purpose: "any maskable",
-          },
-        ],
-      },
       workbox: {
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         runtimeCaching: [
           {
@@ -103,6 +75,35 @@ export default defineConfig(({ mode }) => ({
                 statuses: [0, 200],
               },
             },
+          },
+        ],
+      },
+      manifest: {
+        name: "Sistem Absensi Siswa - SMAN 1 Manonjaya",
+        short_name: "Absensi SMAN 1",
+        description: "Sistem manajemen dan absensi siswa berbasis web dengan pemindaian QR Code",
+        theme_color: "#1e4b7a",
+        background_color: "#f8fafc",
+        display: "standalone",
+        orientation: "portrait",
+        start_url: "/",
+        scope: "/",
+        icons: [
+          {
+            src: "/pwa-192x192.png",
+            sizes: "192x192",
+            type: "image/png",
+          },
+          {
+            src: "/pwa-512x512.png",
+            sizes: "512x512",
+            type: "image/png",
+          },
+          {
+            src: "/pwa-512x512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any maskable",
           },
         ],
       },
