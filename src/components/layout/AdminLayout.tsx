@@ -9,7 +9,8 @@ import {
   Menu,
   X,
   Settings,
-  UserPlus
+  UserPlus,
+  HardDrive
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useSchoolSettings } from '@/hooks/useSchoolSettings';
@@ -36,6 +37,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     { path: '/students', icon: Users, label: 'Data Siswa' },
     { path: '/scanner', icon: ScanLine, label: 'Scanner Absensi' },
     { path: '/reports', icon: FileText, label: 'Rekap Absensi' },
+    { path: '/offline', icon: HardDrive, label: 'Data Offline' },
     { path: '/settings', icon: Settings, label: 'Pengaturan' },
     ...(isAdmin ? [{ path: '/staff', icon: UserPlus, label: 'Kelola Staff' }] : []),
   ];

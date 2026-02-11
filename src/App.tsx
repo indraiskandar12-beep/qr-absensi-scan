@@ -13,6 +13,7 @@ import Scanner from "./pages/Scanner";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import StaffManagement from "./pages/StaffManagement";
+import OfflineManager from "./pages/OfflineManager";
 import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
 
@@ -113,6 +114,14 @@ const AppRoutes = () => (
       element={
         <ProtectedRoute>
           <Settings />
+        </ProtectedRoute>
+      }
+    />
+    <Route
+      path="/offline"
+      element={
+        <ProtectedRoute>
+          <OfflineManager />
         </ProtectedRoute>
       }
     />
